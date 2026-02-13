@@ -1,6 +1,9 @@
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const authRoutes = require("./routes/authRoutes");
+const { protect } = require("./middleware/authMiddleware");
+const { authorize } = require("./middleware/roleMiddleware");
 
 const app = express();
  app.use(cors({
@@ -8,11 +11,18 @@ const app = express();
     credentials: true
  }));
 
- app.use(express.json());
- app.use(cookieParser());
+app.use(express.json());
+app.use(cookieParser());
+app.use("/api/auth", authRoutes);
 
  app.get("/", (req, res) => {
     res.send("API is Running");
  });
+ app.get("/api/protected", protect, (req, res) => {
+  res.json({ message: "You accessed protected route!", user: req.user });
+});
+app.post("/admin-only", protect, authorize("admin"), (req, res) => {
+   res.json({ message: "Admin access granted", user: req.user });
+});
 
  module.exports = app;
