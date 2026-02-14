@@ -28,11 +28,9 @@ const generateRefreshToken = async (user) => {
 };
 exports.register = async (req, res) => {
   try {
-    const { name, email, password } = req.body || {};
+    const { name, email, password, role } = req.body || {};
 
     if (!name || !email || !password) {
-      console.log(req.body);
-
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -41,18 +39,22 @@ exports.register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await User.create({
+    const user = await User.create({
       name,
       email,
       password: hashedPassword,
+      role: role || "user", // 👈 default user
     });
 
-    res.status(201).json({ message: "User registered successfully" });
+    res.status(201).json({
+      message: "User registered successfully",
+      role: user.role
+    });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 exports.login = async (req, res) => {
   try {
@@ -62,24 +64,27 @@ exports.login = async (req, res) => {
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(400).json({ message: "Invalid credentials" });
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
     const accessToken = generateAccessToken(user);
     const refreshToken = await generateRefreshToken(user);
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
-      secure: false, // change to true in production
+      secure: false,
       sameSite: "strict",
     });
 
-    res.json({ accessToken });
+    res.json({
+      accessToken,
+      role: user.role,
+      userId: user._id
+    });
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 exports.refreshToken = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
