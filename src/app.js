@@ -5,6 +5,7 @@ const authRoutes = require("./routes/authRoutes");
 const { protect } = require("./middleware/authMiddleware");
 const { authorize } = require("./middleware/roleMiddleware");
 const productRoutes = require("./routes/productRoutes");
+const passport = require("./config/passport");
 
 const app = express();
  app.use(cors({
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
+app.use(passport.initialize());
 
  app.get("/", (req, res) => {
     res.send("API is Running");
