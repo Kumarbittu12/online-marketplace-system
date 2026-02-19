@@ -6,6 +6,8 @@ const { protect } = require("./middleware/authMiddleware");
 const { authorize } = require("./middleware/roleMiddleware");
 const productRoutes = require("./routes/productRoutes");
 const passport = require("./config/passport");
+const offerRoutes = require("./routes/offerRoutes");
+const cartRoutes = require("./routes/cartRoutes");
 
 const app = express();
  app.use(cors({
@@ -18,6 +20,8 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use(passport.initialize());
+app.use("/api/offers", offerRoutes);
+app.use("/api/cart", cartRoutes);
 
  app.get("/", (req, res) => {
     res.send("API is Running");
