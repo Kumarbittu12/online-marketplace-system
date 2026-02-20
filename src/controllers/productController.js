@@ -66,3 +66,65 @@ exports.getMarketplaceProducts = async (req, res) => {
 }
 
 };
+
+//
+exports.searchProducts = async (req, res) => {
+  try {
+    const {
+      q,
+      category,
+      brand,
+      minPrice,
+      maxPrice,
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    let filter = { isActive: true };
+
+    // 🔍 keyword search (name + description)
+    if (q) {
+      filter.$or = [
+        { name: { $regex: q, $options: "i" } },
+        { description: { $regex: q, $options: "i" } }
+      ];
+    }
+
+    if (category) filter.category = category;
+    if (brand) filter.brand = brand;
+
+    // 💰 price filtering (via offers)
+    let offerFilter = {};
+    if (minPrice || maxPrice) {
+      offerFilter.price = {};
+      if (minPrice) offerFilter.price.$gte = Number(minPrice);
+      if (maxPrice) offerFilter.price.$lte = Number(maxPrice);
+    }
+
+    const skip = (page - 1) * limit;
+
+    const products = await Product.find(filter)
+      .skip(skip)
+      .limit(Number(limit));
+
+    const results = await Promise.all(
+      products.map(async product => {
+        const bestOffer = await Offer.findOne({
+          product: product._id,
+          ...offerFilter,
+          stock: { $gt: 0 }
+        }).sort({ price: 1 });
+
+        return {
+          product,
+          bestOffer
+        };
+      })
+    );
+
+    res.json(results);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

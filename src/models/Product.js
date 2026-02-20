@@ -48,4 +48,8 @@ const productSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 
+productSchema.index({ name: "text", description: "text" });
+productSchema.index({ category: 1 });
+productSchema.index({ brand: 1 });
+
 module.exports = mongoose.model("Product", productSchema);
