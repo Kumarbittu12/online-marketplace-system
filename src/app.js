@@ -9,6 +9,7 @@ const passport = require("./config/passport");
 const offerRoutes = require("./routes/offerRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const app = express();
  app.use(cors({
@@ -24,6 +25,7 @@ app.use(passport.initialize());
 app.use("/api/offers", offerRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
  app.get("/", (req, res) => {
     res.send("API is Running");

@@ -1,5 +1,6 @@
 const Product = require("../models/Product");
 const Offer = require("../models/Offer");
+const redisClient = require("../config/redis");
 
 
 // create and get products without auth for testing purposes
@@ -43,33 +44,44 @@ exports.getProducts = async (req, res) => {
 
 
 exports.getMarketplaceProducts = async (req, res) => {
-  try {
-    const products = await Product.find({ isActive: true });
+  const cacheKey = "marketplace";
 
-    const results = await Promise.all(
-      products.map(async product => {
-        const offers = await Offer.find({ product: product._id, stock: { $gt: 0 } })
-          .sort({ price: 1 })
-          .limit(1);
+  const cached = await redisClient.get(cacheKey);
+  if (cached) {
+    console.log("Marketplace from Redis");
+    return res.json(JSON.parse(cached));
+  }
 
-        return {
-          product,
-          bestOffer: offers[0] || null
-        };
-      })
-    );
+  const products = await Product.find({ isActive: true });
 
-    res.json(results);
-  } catch (error) {
-  console.error(error);
-  res.status(500).json({ error: error.message });
-}
+  const results = await Promise.all(
+    products.map(async product => {
+      const offers = await Offer.find({ product: product._id, stock: { $gt: 0 } })
+        .sort({ price: 1 })
+        .limit(1);
 
+      return { product, bestOffer: offers[0] || null };
+    })
+  );
+
+  await redisClient.setEx(cacheKey, 60, JSON.stringify(results));
+
+  res.json(results);
 };
 
 //
 exports.searchProducts = async (req, res) => {
   try {
+    const cacheKey = `search:${JSON.stringify(req.query)}`;
+
+    // ⚡ check cache first
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      console.log("Serving from Redis");
+      return res.json(JSON.parse(cached));
+    }
+
+    // ===== MongoDB query (same as before) =====
     const {
       q,
       category,
@@ -82,7 +94,6 @@ exports.searchProducts = async (req, res) => {
 
     let filter = { isActive: true };
 
-    // 🔍 keyword search (name + description)
     if (q) {
       filter.$or = [
         { name: { $regex: q, $options: "i" } },
@@ -93,7 +104,6 @@ exports.searchProducts = async (req, res) => {
     if (category) filter.category = category;
     if (brand) filter.brand = brand;
 
-    // 💰 price filtering (via offers)
     let offerFilter = {};
     if (minPrice || maxPrice) {
       offerFilter.price = {};
@@ -115,12 +125,12 @@ exports.searchProducts = async (req, res) => {
           stock: { $gt: 0 }
         }).sort({ price: 1 });
 
-        return {
-          product,
-          bestOffer
-        };
+        return { product, bestOffer };
       })
     );
+
+    // 🧊 Save to Redis (TTL 60 sec)
+    await redisClient.setEx(cacheKey, 60, JSON.stringify(results));
 
     res.json(results);
 
